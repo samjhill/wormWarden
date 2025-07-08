@@ -4,34 +4,34 @@ import requests
 import time
 import traceback
 import json
+from collections import defaultdict, deque
 
 load_dotenv()
 
 MAP_ID = os.getenv("MAP_ID")
 DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK")
 CONNECTIONS_FILE = "connections.json"
+HOME_SYSTEM_NAME = "J103453"
+HIGHSEC_NAMES_FILE = "highsec_system_names.json"
 
-cookie = (
-    "cookie=1; "
-    f"pathfinder_session={os.getenv('PF_SESSION')}; "
-    f"char_756f808ea2cc0b9e3480676514e66368={os.getenv('PF_CHAR_COOKIE')}"
-)
+# Load highsec names
+with open(HIGHSEC_NAMES_FILE) as f:
+    HIGHSEC_NAMES = set(json.load(f))
 
 HEADERS = {
     "Accept": "application/json, text/javascript, */*; q=0.01",
     "Accept-Encoding": "gzip, deflate, br, zstd",
-    "Accept-Language": "en-US,en;q=0.9,de;q=0.8,fr;q=0.7",
-    "Cookie": cookie,
+    "Accept-Language": "en-US,en;q=0.9",
+    "Cookie": (
+        "cookie=1; "
+        f"pathfinder_session={os.getenv('PF_SESSION')}; "
+        f"char_756f808ea2cc0b9e3480676514e66368={os.getenv('PF_CHAR_COOKIE')}"
+    ),
     "pf-character": os.getenv("PF_CHARACTER"),
-    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36",
+    "User-Agent": "Mozilla/5.0",
     "X-Requested-With": "XMLHttpRequest",
-    "Referer": "https://path.shadowflight.org/map",
-    "Sec-Fetch-Dest": "empty",
-    "Sec-Fetch-Mode": "cors",
-    "Sec-Fetch-Site": "same-origin"
+    "Referer": "https://path.shadowflight.org/map"
 }
-
-previous_signatures = {}
 
 def load_prior_connections():
     if os.path.exists(CONNECTIONS_FILE):
@@ -42,19 +42,6 @@ def load_prior_connections():
 def save_prior_connections(connections):
     with open(CONNECTIONS_FILE, "w") as f:
         json.dump([list(conn) for conn in connections], f)
-
-def diff_dicts(old, new):
-    added = new.keys() - old.keys()
-    removed = old.keys() - new.keys()
-    changed = {k for k in old.keys() & new.keys() if old[k] != new[k]}
-    unchanged = {k for k in old.keys() & new.keys() if old[k] == new[k]}
-
-    return {
-        "added": added,
-        "removed": removed,
-        "changed": changed,
-        "unchanged": unchanged
-    }
 
 def send_discord_alert(message):
     requests.post(DISCORD_WEBHOOK_URL, json={"content": message})
@@ -72,52 +59,52 @@ def get_map_data():
     r.raise_for_status()
     return r.json()
 
-def get_system_data(system_id):
-    url = f"https://path.shadowflight.org/api/rest/System/{system_id}?mapId={MAP_ID}"
-    r = requests.get(url, headers=HEADERS)
-    if r.status_code in [401, 403]:
-        print("❌ Pathfinder session expired. Please update your session cookie.")
-        exit(1)
-    r.raise_for_status()
-    return r.json()
+def print_graph(graph, system_name_lookup):
+    print("🌌 Pathfinder Wormhole Graph:")
+    for system_id, neighbors in graph.items():
+        name = system_name_lookup.get(system_id, str(system_id))
+        neighbor_names = [f"{system_name_lookup.get(n, str(n))} (id: {n})" for n in neighbors]
+        print(f"  {name} (id {system_id}) → {', '.join(neighbor_names)}")
 
-def check_for_changes(system_name, system_id, current):
-    alerts = []
-    prev = previous_signatures.get(system_id, {})
+def find_path_to_highsec(graph, start_id, name_lookup):
+    visited = set()
+    queue = deque([(start_id, [start_id])])
+    home_name = name_lookup.get(start_id, str(start_id))
 
-    # New or updated sigs
-    for sig_id, sig_data in current.items():
-        if sig_id not in prev:
-            alerts.append(f"🆕 `{system_name}`: New WH `{sig_data['name']}`")
-        else:
-            old = prev[sig_id]
-            if sig_data["eol"] and not old["eol"]:
-                alerts.append(f"⏳ `{system_name}`: WH `{sig_data['name']}` is now **EOL**")
-            if sig_data["mass"] != old["mass"]:
-                alerts.append(f"⚖️ `{system_name}`: WH `{sig_data['name']}` mass changed: {old['mass']} → {sig_data['mass']}")
+    while queue:
+        current, path = queue.popleft()
+        current_name = name_lookup.get(current, str(current))
+        print(f"🛰️ Visiting {current_name} (ID: {current}), path: {[name_lookup.get(p, str(p)) for p in path]}")
+        if current in visited:
+            continue
+        visited.add(current)
 
-    # Disappeared sigs
-    for sig_id in prev:
-        if sig_id not in current:
-            alerts.append(f"💀 `{system_name}`: WH `{prev[sig_id]['name']}` disappeared (likely collapsed)")
+        if current_name in HIGHSEC_NAMES:
+            print(f"✅ High-sec system reached: {current_name}")
+            return path
 
-    previous_signatures[system_id] = current
-    return alerts
+        for neighbor in graph.get(current, []):
+            if neighbor not in visited:
+                queue.append((neighbor, path + [neighbor]))
+    return None
 
 def main():
     print("🚀 Pathfinder WH Alert Bot running...")
-    
     prior_connections = load_prior_connections()
+
     while True:
         try:
             data = get_map_data()
+            graph = defaultdict(list)
 
+            # Collect systems and connections
             system_ids = [
                 (s["id"], s["name"])
                 for map_data in data.get("mapData", [])
                 for s in map_data["data"].get("systems", [])
             ]
-            system_ids_dict = dict(system_ids)
+            name_lookup = dict(system_ids)
+            reverse_lookup = {name: sid for sid, name in system_ids}
 
             connections = {
                 (c["source"], c["target"])
@@ -125,34 +112,44 @@ def main():
                 for c in map_data["data"].get("connections", [])
             }
 
-            if not prior_connections:
-                prior_connections = connections
-                print(f"connections: ")
-                for source, target in connections:
-                    print(f"`{system_ids_dict.get(source, 'Unknown')}` → `{system_ids_dict.get(target, 'Unknown')}`")
+            for source, target in connections:
+                graph[source].append(target)
+                graph[target].append(source)
 
+            # Show the full graph
+            print_graph(graph, name_lookup)
+
+            # Pathfinding from home system to highsec
+            home_id = reverse_lookup.get(HOME_SYSTEM_NAME)
+            if not home_id:
+                print(f"⚠️ Could not find system ID for {HOME_SYSTEM_NAME}")
+            else:
+                path = find_path_to_highsec(graph, home_id, name_lookup)
+                if path:
+                    named_path = [name_lookup.get(p, str(p)) for p in path]
+                    alert_msg = f"📍 New route from `{HOME_SYSTEM_NAME}` to High-Sec:\n`" + " → ".join(named_path) + "`"
+                    send_discord_alert(alert_msg)
+                    log_alert(alert_msg)
+
+            # Compare changes
             added = connections - prior_connections
             removed = prior_connections - connections
 
             for source, target in added:
-                alert_content = f"➕ New connection: `{system_ids_dict.get(source, 'Unknown')}` → `{system_ids_dict.get(target, 'Unknown')}`"
-                send_discord_alert(alert_content)
-                log_alert(alert_content)
-
+                alert = f"➕ New connection: `{name_lookup.get(source, 'Unknown')}` → `{name_lookup.get(target, 'Unknown')}`"
+                log_alert(alert)
             for source, target in removed:
-                alert_content = f"❌ Connection removed: `{system_ids_dict.get(source, 'Unknown')}` → `{system_ids_dict.get(target, 'Unknown')}`"
-                send_discord_alert(alert_content)
-                log_alert(alert_content)
+                alert = f"❌ Connection removed: `{name_lookup.get(source, 'Unknown')}` → `{name_lookup.get(target, 'Unknown')}`"
+                log_alert(alert)
 
-            if not added and not removed:
-                print("nothing has changed. Not sending an alert now")
+            save_prior_connections(connections)
+            prior_connections = connections
 
-            save_prior_connections(prior_connections)
             time.sleep(60)
         except Exception as e:
             print(f"[ERROR] {e}")
             print(traceback.format_exc())
-            time.sleep(5)
+            time.sleep(10)
 
 if __name__ == "__main__":
     main()
