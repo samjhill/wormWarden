@@ -3,11 +3,13 @@ import os
 import requests
 import time
 import traceback
+import json
 
 load_dotenv()
 
 MAP_ID = os.getenv("MAP_ID")
 DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK")
+CONNECTIONS_FILE = "connections.json"
 
 cookie = (
     "cookie=1; "
@@ -30,6 +32,16 @@ HEADERS = {
 }
 
 previous_signatures = {}
+
+def load_prior_connections():
+    if os.path.exists(CONNECTIONS_FILE):
+        with open(CONNECTIONS_FILE, "r") as f:
+            return set(tuple(conn) for conn in json.load(f))
+    return set()
+
+def save_prior_connections(connections):
+    with open(CONNECTIONS_FILE, "w") as f:
+        json.dump([list(conn) for conn in connections], f)
 
 def diff_dicts(old, new):
     added = new.keys() - old.keys()
@@ -59,20 +71,6 @@ def get_map_data():
     r = requests.post(url, headers=headers, data=data)
     r.raise_for_status()
     return r.json()
-
-def get_all_system_ids(data):
-    systems = []
-    for map_data in data.get("mapData", []):
-        for s in map_data.get("data").get("systems", []):
-            systems.append((s["id"], s["name"]))
-        return systems
-
-def get_all_connections(data):
-    connections = []
-    for map_data in data.get("mapData", []):
-        for s in map_data.get("data").get("connections", []):
-            connections.append((s["source"], s["target"]))
-        return connections
 
 def get_system_data(system_id):
     url = f"https://path.shadowflight.org/api/rest/System/{system_id}?mapId={MAP_ID}"
@@ -109,13 +107,24 @@ def check_for_changes(system_name, system_id, current):
 def main():
     print("🚀 Pathfinder WH Alert Bot running...")
     
-    prior_connections = set()
+    prior_connections = load_prior_connections()
     while True:
         try:
-            map_data = get_map_data()
-            system_ids = get_all_system_ids(map_data)
+            data = get_map_data()
+
+            system_ids = [
+                (s["id"], s["name"])
+                for map_data in data.get("mapData", [])
+                for s in map_data["data"].get("systems", [])
+            ]
             system_ids_dict = dict(system_ids)
-            connections = set(get_all_connections(map_data))
+
+            connections = {
+                (c["source"], c["target"])
+                for map_data in data.get("mapData", [])
+                for c in map_data["data"].get("connections", [])
+            }
+
             if not prior_connections:
                 prior_connections = connections
                 print(f"connections: ")
@@ -137,6 +146,8 @@ def main():
 
             if not added and not removed:
                 print("nothing has changed. Not sending an alert now")
+
+            save_prior_connections(prior_connections)
             time.sleep(60)
         except Exception as e:
             print(f"[ERROR] {e}")
