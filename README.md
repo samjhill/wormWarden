@@ -39,3 +39,32 @@ PF_CHAR_COOKIE=your_pf_char_cookie_value
 PF_CHARACTER=your_pathfinder_character_id
 DISCORD_WEBHOOK=https://discord.com/api/webhooks/...
 ```
+
+# Running it
+
+```
+python3 -m main
+```
+
+# 🧭 How It Works
+
+### Fetch Map Data
+
+The bot pulls system and connection info from your Pathfinder instance using the updateData endpoint.
+
+### Build Graph
+
+Systems and their connections are stored in a bidirectional graph using Python's defaultdict(list).
+
+### Detect Changes
+
+If connections change (new or removed), those changes are logged and persisted.
+
+### Find Path to High-Sec
+
+It uses breadth-first search (BFS) to look for any route from your defined home system to a high-sec system using only system names.
+
+### Send Alerts
+
+When a new path is found, or connections are updated, the bot sends an alert via Discord and logs it locally.
+
