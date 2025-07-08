@@ -34,6 +34,24 @@ HEADERS = {
     "Referer": "https://path.shadowflight.org/map"
 }
 
+
+TRADE_HUBS = {
+    "Jita": 30000142,
+    "Amarr": 30002187,
+    "Dodixie": 30002659,
+    "Rens": 30002510,
+    "Hek": 30002053
+}
+
+def resolve_system_name_to_id(name):
+    url = "https://esi.evetech.net/latest/universe/ids/"
+    response = requests.post(url, json=[name])
+    response.raise_for_status()
+    data = response.json()
+    if "systems" in data:
+        return data["systems"][0]["id"]
+    return None
+
 def load_last_path():
     if os.path.exists(LAST_PATH_FILE):
         with open(LAST_PATH_FILE, "r") as f:
@@ -99,6 +117,22 @@ def find_path_to_highsec(graph, start_id, name_lookup):
                 queue.append((neighbor, path + [neighbor]))
     return None
 
+def get_route_length(origin_id, destination_id):
+    url = f"https://esi.evetech.net/latest/route/{origin_id}/{destination_id}/"
+    r = requests.get(url)
+    if r.status_code == 200:
+        return len(r.json()) - 1
+    return None
+
+def report_trade_hub_distances(highsec_entry_id):
+    distances = {}
+    for hub_name, hub_id in TRADE_HUBS.items():
+        jumps = get_route_length(highsec_entry_id, hub_id)
+        if jumps is not None:
+            print(f"📦 {hub_name}: {jumps} jumps")
+            distances[hub_name] = jumps
+    return distances
+
 def main():
     print("🚀 Pathfinder WH Alert Bot running...")
     prior_connections = load_prior_connections()
@@ -141,7 +175,14 @@ def main():
                     last_path = load_last_path()
 
                     if named_path != last_path:
+                        entry_point_id = resolve_system_name_to_id(name_lookup.get(path[-1]))
                         msg = f"🧭 Route from {named_path[0]} to High-Sec:\n`" + " → ".join(named_path) + "`"
+                        distances = report_trade_hub_distances(entry_point_id)
+                        distances_msg = "\n".join([f"📦 {hub}: {jumps} jumps" for hub, jumps in distances.items()])
+                        msg = (
+                            f"🧭 Route from {named_path[0]} to High-Sec:\n`" + " → ".join(named_path) + "`\n" +
+                            distances_msg
+                        )
                         send_discord_alert(msg)
                         log_alert(msg)
                         save_last_path(named_path)
