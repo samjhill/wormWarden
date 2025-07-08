@@ -118,7 +118,7 @@ def find_path_to_highsec(graph, start_id, name_lookup):
     return None
 
 def get_route_length(origin_id, destination_id):
-    url = f"https://esi.evetech.net/latest/route/{origin_id}/{destination_id}/"
+    url = f"https://esi.evetech.net/latest/route/{origin_id}/{destination_id}/?flag=secure"
     r = requests.get(url)
     if r.status_code == 200:
         return len(r.json()) - 1
