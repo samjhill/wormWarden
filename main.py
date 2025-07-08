@@ -13,6 +13,7 @@ DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK")
 CONNECTIONS_FILE = "connections.json"
 HOME_SYSTEM_NAME = "J103453"
 HIGHSEC_NAMES_FILE = "highsec_system_names.json"
+LAST_PATH_FILE = "last_path.json"
 
 # Load highsec names
 with open(HIGHSEC_NAMES_FILE) as f:
@@ -32,6 +33,17 @@ HEADERS = {
     "X-Requested-With": "XMLHttpRequest",
     "Referer": "https://path.shadowflight.org/map"
 }
+
+def load_last_path():
+    if os.path.exists(LAST_PATH_FILE):
+        with open(LAST_PATH_FILE, "r") as f:
+            return json.load(f)
+    return []
+
+def save_last_path(path):
+    with open(LAST_PATH_FILE, "w") as f:
+        json.dump(path, f)
+
 
 def load_prior_connections():
     if os.path.exists(CONNECTIONS_FILE):
@@ -69,7 +81,6 @@ def print_graph(graph, system_name_lookup):
 def find_path_to_highsec(graph, start_id, name_lookup):
     visited = set()
     queue = deque([(start_id, [start_id])])
-    home_name = name_lookup.get(start_id, str(start_id))
 
     while queue:
         current, path = queue.popleft()
@@ -126,10 +137,17 @@ def main():
             else:
                 path = find_path_to_highsec(graph, home_id, name_lookup)
                 if path:
-                    named_path = [name_lookup.get(p, str(p)) for p in path]
-                    alert_msg = f"📍 New route from `{HOME_SYSTEM_NAME}` to High-Sec:\n`" + " → ".join(named_path) + "`"
-                    send_discord_alert(alert_msg)
-                    log_alert(alert_msg)
+                    named_path = [name_lookup.get(s, str(s)) for s in path]
+                    last_path = load_last_path()
+
+                    if named_path != last_path:
+                        msg = f"🧭 Route from {named_path[0]} to High-Sec:\n`" + " → ".join(named_path) + "`"
+                        send_discord_alert(msg)
+                        log_alert(msg)
+                        save_last_path(named_path)
+                    else:
+                        print("🟢 High-sec path unchanged; no alert sent.")
+
 
             # Compare changes
             added = connections - prior_connections

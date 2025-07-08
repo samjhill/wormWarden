@@ -68,3 +68,6 @@ It uses breadth-first search (BFS) to look for any route from your defined home 
 
 When a new path is found, or connections are updated, the bot sends an alert via Discord and logs it locally.
 
+# Future work
+
+ask in Discord for a route from the wormhole out to high sec

@@ -10,3 +10,14 @@ Mon Jul  7 23:24:53 2025 - ➕ New connection: `J152322` → `J152711`
 Mon Jul  7 23:24:54 2025 - ❌ Connection removed: `Unknown` → `J152711`
 Mon Jul  7 23:25:48 2025 - ➕ New connection: `J140932` → `J123452`
 Mon Jul  7 23:25:48 2025 - ❌ Connection removed: `J152711` → `J123452`
+Tue Jul  8 10:20:29 2025 - 📍 New route from `J103453` to High-Sec:
+`J103453 → J145416 → J214654 → J164104 → Irnal`
+Tue Jul  8 10:20:29 2025 - ❌ Connection removed: `J172926` → `J143946`
+Tue Jul  8 10:20:29 2025 - ❌ Connection removed: `J112110` → `J143946`
+Tue Jul  8 10:20:29 2025 - ❌ Connection removed: `J115651` → `J143946`
+Tue Jul  8 10:21:30 2025 - 📍 New route from `J103453` to High-Sec:
+`J103453 → J145416 → J214654 → J164104 → Irnal`
+Tue Jul  8 10:22:31 2025 - 📍 New route from `J103453` to High-Sec:
+`J103453 → J145416 → J214654 → J164104 → Irnal`
+Tue Jul  8 10:44:27 2025 - 🧭 Route from J103453 to High-Sec:
+`J103453 → J145416 → J214654 → J164104 → Irnal`
