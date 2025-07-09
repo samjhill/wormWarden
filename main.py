@@ -206,9 +206,10 @@ def main():
 
             time.sleep(60)
         except Exception as e:
+            send_discord_alert("error - check app logs")
             print(f"[ERROR] {e}")
             print(traceback.format_exc())
-            time.sleep(10)
+            exit(1)
 
 if __name__ == "__main__":
     main()
