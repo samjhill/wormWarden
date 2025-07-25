@@ -127,7 +127,7 @@ def main():
                         distances = report_trade_hub_distances(entry_point_id)
                         distances_msg = "\n".join(
                             [
-                                f"📦 {hub}: {jumps} jumps"
+                                f"• {hub}: {jumps} jumps"
                                 for hub, jumps in distances.items()
                             ]
                         )
