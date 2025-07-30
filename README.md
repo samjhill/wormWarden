@@ -30,7 +30,9 @@ pip install -r requirements.txt
 
 # 🛠️ Environment Setup
 
-Create a .env file with the following keys:
+## Option 1: Manual Session Cookies (Recommended)
+
+Most Pathfinder instances require manual session cookies. Create a .env file with:
 
 ```
 MAP_ID=1
@@ -40,11 +42,82 @@ PF_CHARACTER=your_pathfinder_character_id
 DISCORD_WEBHOOK=https://discord.com/api/webhooks/...
 ```
 
-# Running it
+To get your session cookies, run:
+
+```bash
+python3 get_session_cookies.py
+```
+
+This will guide you through getting the required cookies from your browser.
+
+## Option 2: EVE SSO Authentication (Experimental)
+
+Some Pathfinder instances may support EVE SSO. Create a .env file with:
 
 ```
+MAP_ID=1
+DISCORD_WEBHOOK=https://discord.com/api/webhooks/...
+EVE_CLIENT_ID=your_eve_client_id
+EVE_CLIENT_SECRET=your_eve_client_secret
+EVE_CALLBACK_URL=http://localhost:8080/callback
+PATHFINDER_URL=https://path.shadowflight.org
+```
+
+Then run the setup script:
+
+```bash
+python3 setup_auth.py
+```
+
+**Note:** EVE SSO with Pathfinder is experimental and may not work with all Pathfinder instances.
+
+# Running it
+
+## First Time Setup
+
+### Option 1: Manual Session Cookies (Recommended)
+
+1. **Get your Pathfinder session cookies:**
+   ```bash
+   python3 get_session_cookies.py
+   ```
+
+2. **Set up your .env file** with the cookie values
+
+3. **Start the bot:**
+   ```bash
+   python3 -m main
+   ```
+
+### Option 2: EVE SSO Authentication (Experimental)
+
+1. **Get EVE Developer Credentials:**
+   - Go to https://developers.eveonline.com/
+   - Create a new application
+   - Set callback URL to: `http://localhost:8080/callback`
+   - Copy the Client ID and Client Secret
+
+2. **Set up your .env file** (see Environment Setup above)
+
+3. **Run the authentication setup:**
+   ```bash
+   python3 setup_auth.py
+   ```
+
+4. **Start the bot:**
+   ```bash
+   python3 -m main
+   ```
+
+## Subsequent Runs
+
+Once set up, you can simply run:
+
+```bash
 python3 -m main
 ```
+
+The bot will automatically use the best available authentication method.
 
 # 🧭 How It Works
 

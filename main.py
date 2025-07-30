@@ -14,7 +14,7 @@ from helpers.data import (
     save_prior_connections,
 )
 from helpers.esi import get_route_length, resolve_system_name_to_id
-from helpers.pathfinder import get_map_data, print_graph
+from helpers.pathfinder import get_map_data, print_graph, PathfinderClient
 
 load_dotenv()
 
@@ -77,10 +77,25 @@ def report_trade_hub_distances(highsec_entry_id):
 def main():
     print("🚀 Pathfinder WH Alert Bot running...")
     prior_connections = load_prior_connections()
+    
+    # Initialize Pathfinder client
+    pf_client = PathfinderClient()
 
     while True:
         try:
-            data = get_map_data()
+            data = pf_client.get_map_data()
+            
+            # Handle case where Pathfinder authentication fails
+            if data is None:
+                print("❌ Could not fetch map data from Pathfinder")
+                print("💡 This might be due to:")
+                print("   - Pathfinder not supporting EVE SSO authentication")
+                print("   - Need to use manual session cookies")
+                print("   - Pathfinder server issues")
+                print("🔄 Retrying in 60 seconds...")
+                time.sleep(60)
+                continue
+            
             graph = defaultdict(list)
 
             # Collect systems and connections

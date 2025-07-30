@@ -3,3 +3,4 @@ last_path.json
 wh_alerts.log
 .env
 __pycache__
+eve_tokens.json
